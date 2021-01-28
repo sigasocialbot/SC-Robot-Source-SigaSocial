@@ -1,0 +1,2203 @@
+import requests, selenium, json, datetime, os, threading, traceback, sqlite3, time, random, requests_cache, base64, pygame
+from colorama import init, Fore, Back, Style
+from zipfile import ZipFile
+from PyQt5 import QtWidgets, uic, QtCore
+from PyQt5.QtWidgets import QMessageBox, QApplication
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
+from selenium.webdriver.chrome.options import Options as ChromeOptions
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.webdriver import WebDriver
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
+from msedge.selenium_tools import Edge, EdgeOptions
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from webdriver_manager.firefox import GeckoDriverManager
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+
+
+init(autoreset=True, convert=True)
+versão_bot = 1.02
+
+
+class Updater:
+    def verificar_atualização(self):
+        
+        conn = sqlite3.connect('./storage/data/rev.db')
+        cursor = conn.cursor()
+        cursor = cursor.execute("SELECT versao_local FROM versao")
+        versao_local = cursor.fetchall()[0][0]
+        cursor.close()
+        conn.close()
+
+        if versão_bot > float(versao_local):
+            atualizar = True
+        else:
+            atualizar = False
+        
+        return atualizar
+        
+
+    def atualizar_arquivos(self):
+        # informa update na GUI específica para isso.
+        print('Baixando atualizações & dependências necessárias\n')
+        windowAtualizar.listWidget.addItem('Baixando atualizações & dependências necessárias\n')
+        headers = {"User-Agent" : "Mozilla/5.0 (iPhone; CPU iPhone OS 7_1_2 like Mac OS X) AppleWebKit/537.51.2 (KHTML, like Gecko) OPiOS/10.2.0.93022 Mobile/11D257 Safari/9537.53"}
+
+        # baixar pacote zip por essa URL
+        url = 'https://scrobot.com.br/code/sigasocial/updates/graphic.zip'
+        
+        # caminho onde será extraído o zip
+        path = "./storage/front/"
+
+        with requests_cache.disabled():
+            myfile = requests.get(url, headers=headers)
+            if "Object not found" not in myfile.text:
+                # baixa o zip
+                with open(r'./storage/updates/graphic.zip', 'wb') as update:
+                    update.write(myfile.content)
+                
+                # extrai o zip
+                with ZipFile(r'./storage/updates/graphic.zip', 'r') as zipObj:
+                    zipObj.extractall(path)
+
+                # remove o update
+                os.remove("./storage/updates/graphic.zip")
+
+
+
+
+                # caminho onde será extraído o zip
+                path = "./storage/data/"
+
+                # atualiza o arquivo de db
+                myfile = requests.get("https://scrobot.com.br/code/sigasocial/updates/dbfiles.zip", headers=headers)
+                with open(r'./storage/updates/dbfiles.zip', 'wb') as update:
+                    update.write(myfile.content)
+
+                # extrai o zip
+                with ZipFile(r'./storage/updates/dbfiles.zip', 'r') as zipObj:
+                    zipObj.extractall(path)
+
+                # remove o update
+                os.remove("./storage/updates/dbfiles.zip")
+
+
+                # informa que o update foi finalizado.
+                print('Atualização concluida. Reinicie para usar.')
+                windowAtualizar.listWidget.addItem('Atualização concluída. Reinicie para usar.')
+                windowAtualizar.listWidget.addItem('Lembrem-se de reconfigurar o bot da forma que costumam a utilizar.')
+                windowAtualizar.listWidget.addItem('Os dados de login e senha dos perfis e plataforma não serão perdidos.')
+
+            else:
+                # informa que o update não pôde ser realizado.
+                print('Atualização não pôde ser realizada.')
+                windowAtualizar.listWidget.addItem('Atualização não pôde ser realizada.')
+
+
+class Interface:
+    def bloquear_por_verificação(self, lista_perfis):
+        if windowConfigurar.checkBoxAlertaSonoro.isChecked() == True:
+            path = './storage/sound/challenge.mp3'
+            pygame.mixer.init()
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.play()
+
+        try:
+            # verifica se já existe o txt na pasta para definir o modo de escrita
+            if os.path.exists('./log/bloqueio_verificação.txt'):
+                mode = 'r'
+            else:
+                mode = 'w+'
+
+            # faz a leitura das informações do texto
+            with open("./log/bloqueio_verificação.txt", mode) as texto:
+                texto = texto.readlines()
+
+            # grava o perfil atual no txt se ele não existir
+            if lista_perfis[Bot().pos][0] not in texto:
+                with open("./log/bloqueio_verificação.txt","a") as file1:
+                    file1.write(f"{Bot().current_time()} {lista_perfis[Bot().pos][0]}\n")
+        except:
+            pass
+        
+
+    def bloquear_por_ação_7_dias(self, lista_perfis):
+        if windowConfigurar.checkBoxAlertaSonoro.isChecked() == True:
+            path = './storage/sound/blockaction.mp3'
+            pygame.mixer.init()
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.play()
+
+        try:
+            # verifica se já existe o txt na pasta para definir o modo de escrita
+            if os.path.exists('./log/bloqueio_de_ação_7d.txt'):
+                mode = 'r'
+            else:
+                mode = 'w+'
+
+            # faz a leitura das informações do texto
+            with open("./log/bloqueio_de_ação_7d.txt", mode) as texto:
+                texto = texto.readlines()
+
+            # grava o perfil atual no txt se ele não existir
+            if lista_perfis[Bot().pos][0] not in texto:
+                with open("./log/bloqueio_de_ação_7d.txt","a") as file1:
+                    file1.write(f"{Bot().current_time()} {lista_perfis[Bot().pos][0]}\n")
+        except:
+            pass
+
+
+    def bloquear_por_ação(self, lista_perfis):
+        if windowConfigurar.checkBoxAlertaSonoro.isChecked() == True:
+            path = './storage/sound/blockaction.mp3'
+            pygame.mixer.init()
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.play()
+
+        try:
+            # verifica se já existe o txt na pasta para definir o modo de escrita
+            if os.path.exists('./log/bloqueio_de_ação.txt'):
+                mode = 'r'
+            else:
+                mode = 'w+'
+
+            # faz a leitura das informações do texto
+            with open("./log/bloqueio_de_ação.txt", mode) as texto:
+                texto = texto.readlines()
+
+            # grava o perfil atual no txt se ele não existir
+            if lista_perfis[Bot().pos][0] not in texto:
+                with open("./log/bloqueio_de_ação.txt","a") as file1:
+                    file1.write(f"{Bot().current_time()} {lista_perfis[Bot().pos][0]}\n")
+        except:
+            pass
+
+
+    def bloquear_por_dados_incorretos(self, lista_perfis):
+        try:
+            # verifica se já existe o txt na pasta para definir o modo de escrita
+            if os.path.exists('./log/bloqueio_dados_incorretos.txt'):
+                mode = 'r'
+            else:
+                mode = 'w+'
+
+            # faz a leitura das informações do texto
+            with open("./log/bloqueio_dados_incorretos.txt", mode) as texto:
+                texto = texto.readlines()
+
+            # grava o perfil atual no txt se ele não existir
+            if lista_perfis[Bot().pos][0] not in texto:
+                with open("./log/bloqueio_dados_incorretos.txt","a") as file1:
+                    file1.write(f"{Bot().current_time()} {lista_perfis[Bot().pos][0]}\n")
+        except:
+            pass
+
+
+    def bloquear_por_espera(self, lista_perfis):
+        if windowConfigurar.checkBoxAlertaSonoro.isChecked() == True:
+            path = './storage/sound/wait.mp3'
+            pygame.mixer.init()
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.play()
+
+
+    # parte responsável por capturar os cliques dos botões
+    def btn_iniciar(self):
+        perfis, email_plataforma, senha_plataforma = Interface().coletar_informações_login()
+        Interface().definir_informações(perfis, email_plataforma, senha_plataforma)
+        iniciar = Interface().validar_informações(perfis, email_plataforma, senha_plataforma)
+        ativado_alertasonoro, tempo_para_inicio, ativado_programarinicio, ativado_reiniciarnav, tmin, tmax, ativado_tentreacoes, nacoes_meta, isolamento_meta, ativado_meta, nacoes_stories, tstories, ativado_stories, tblockaction, ativado_trocarperfil, ativado_esperar5m, ativado_manterlogin, meta_valor, ativado_metavalor, tfinalizar, pathbrave, ativado_tfinalizar, navegador, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy = Interface().coletar_informações_configs()
+        if iniciar == True:
+            windowLogin.hide()
+            Interface().salvar_informações_iniciais(email_plataforma, senha_plataforma, perfis, conn, cursor, dados)
+            Bot().processo(tempo_para_inicio, ativado_programarinicio, ativado_reiniciarnav, perfis, tmin, tmax, ativado_tentreacoes, nacoes_meta, isolamento_meta, ativado_meta, nacoes_stories, tstories, ativado_stories, tblockaction, ativado_trocarperfil, ativado_esperar5m, ativado_manterlogin, meta_valor, ativado_metavalor, tfinalizar, pathbrave, ativado_tfinalizar, navegador, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy)
+
+
+    def btn_addperfis(self):
+        msg.setText('Opção ainda não disponível, estamos trabalhando ainda nessa função.')
+        msg.setWindowTitle("ahh..")
+        msg.exec_()
+
+
+    def btn_removerperfis(self):
+        msg.setText('Opção ainda não disponível, estamos trabalhando ainda nessa função.')
+        msg.setWindowTitle("ahh..")
+        msg.exec_()
+
+
+    def btn_contato(self):
+        msg.setText('Para entrar em contato, envie um email para: suporte@scrobot.com.br ou acesse o site www.scrobot.com.br')
+        msg.setWindowTitle("Contato.")
+        msg.exec_()
+
+
+    def btn_configurar(self):
+        windowLogin.hide()
+        windowConfigurar.show()
+
+
+    def btn_salvarconfig(self):
+        windowConfigurar.hide()
+        ativado_alertasonoro, tempo_para_inicio, ativado_programarinicio, ativado_reiniciarnav, tmin, tmax, ativado_tentreacoes, nacoes_meta, isolamento_meta, ativado_meta, nacoes_stories, tstories, ativado_stories, tblockaction, ativado_trocarperfil, ativado_esperar5m, ativado_manterlogin, meta_valor, ativado_metavalor, tfinalizar, pathbrave, ativado_tfinalizar, navegador, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy = Interface().coletar_informações_configs()
+        conn, cursor, dados = Interface().definir_banco_configs()
+        salvar = Interface().validar_informações_configurações(tmin, tmax, tempo_para_inicio, ativado_programarinicio, ativado_tentreacoes, nacoes_meta, isolamento_meta, ativado_meta, nacoes_stories, tstories, ativado_stories, tblockaction, ativado_trocarperfil, ativado_esperar5m, ativado_manterlogin, meta_valor, ativado_metavalor, tfinalizar, pathbrave, ativado_tfinalizar, navegador, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy)
+        if salvar == True:
+            Interface().salvar_informações_configurações(conn, cursor, dados, ativado_alertasonoro, tempo_para_inicio, ativado_programarinicio, ativado_reiniciarnav, tmin, tmax, ativado_tentreacoes, nacoes_meta, isolamento_meta, ativado_meta, nacoes_stories, tstories, ativado_stories, tblockaction, ativado_trocarperfil, ativado_esperar5m, ativado_manterlogin, meta_valor, ativado_metavalor, tfinalizar, pathbrave, ativado_tfinalizar, navegador, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy)
+            windowLogin.show()
+        else:
+            windowConfigurar.show()
+
+
+    def coletar_informações_configs(self):
+        tmin = windowConfigurar.lineEditTMin.text()
+        tmax = windowConfigurar.lineEditTMax.text()
+        nacoes_meta = windowConfigurar.lineEditAcoes.text()
+        isolamento_meta = windowConfigurar.lineEditIsolamento.text()
+        nacoes_stories = windowConfigurar.lineEditAcoesStories.text()
+        tstories = windowConfigurar.lineEditTAssistindoStories.text()
+        tblockaction = windowConfigurar.lineEditBlockAction.text()
+        meta_valor = windowConfigurar.lineEditMetaValor.text().replace(",",".")
+        tfinalizar = windowConfigurar.lineEditFinalizar.text().replace(",",".")
+        pathbrave = windowConfigurar.lineEdit_pathbrave.text()
+        proxy_ip = windowConfigurar.lineEdit_ip.text().replace(" ","")
+        proxy_porta = windowConfigurar.lineEdit_porta.text().replace(" ","")
+        tempo_para_inicio = windowConfigurar.lineEditProgramarInicio.text()
+
+        try: tmin = int(tmin)
+        except: tmin = 'falha'
+        try: tmax = int(tmax)
+        except: tmax = 'falha'
+        try: nacoes_meta = int(nacoes_meta)
+        except: nacoes_meta = 'falha'
+        try: isolamento_meta = float(isolamento_meta)
+        except: isolamento_meta = 'falha'
+        try: nacoes_stories = int(nacoes_stories)
+        except: nacoes_stories = 'falha'
+        try: tstories = float(tstories)
+        except: tstories = 'falha'
+        try: tblockaction = float(tblockaction)
+        except: tblockaction = 'falha'
+        try: meta_valor = float(meta_valor)
+        except: meta_valor = 'falha'
+        try: tfinalizar = float(tfinalizar)
+        except: tfinalizar = 'falha'
+        try: tempo_para_inicio = int(tempo_para_inicio)
+        except: tempo_para_inicio = 'falha'
+        
+        if windowConfigurar.checkBoxProgramarInicio.isChecked() == True:
+            ativado_programarinicio = True
+        else:
+            ativado_programarinicio = False
+
+        if windowConfigurar.checkBoxAlertaSonoro.isChecked() == True:
+            ativado_alertasonoro = True
+        else:
+            ativado_alertasonoro = False
+
+        if windowConfigurar.checkBoxReiniciarNav.isChecked() == True:
+            ativado_reiniciarnav = True
+        else:
+            ativado_reiniciarnav = False
+
+        if windowConfigurar.checkBoxTempoEntreAcoes.isChecked() == True:
+            ativado_tentreacoes = True
+        else:
+            ativado_tentreacoes = False
+        
+        if windowConfigurar.checkBoxMeta.isChecked() == True:
+            ativado_meta = True
+        else:
+            ativado_meta = False
+
+        if windowConfigurar.checkBoxStories.isChecked() == True:
+            ativado_stories = True
+        else:
+            ativado_stories = False
+
+        if windowConfigurar.checkBoxTrocarPefilSeNaoHouverAcoes.isChecked() == True:
+            ativado_trocarperfil = True
+        else:
+            ativado_trocarperfil = False
+
+        if windowConfigurar.checkBoxEsperarParaTrocarDePerfil.isChecked() == True:
+            ativado_esperar5m = True
+        else:
+            ativado_esperar5m = False
+
+        if windowConfigurar.checkBoxManterLogin.isChecked() == True:
+            ativado_manterlogin = True
+        else:
+            ativado_manterlogin = False
+
+        if windowConfigurar.checkBoxMetaValor.isChecked() == True:
+            ativado_metavalor = True
+        else:
+            ativado_metavalor = False
+
+        if windowConfigurar.checkBox_finalizar.isChecked() == True:
+            ativado_tfinalizar = True
+        else:
+            ativado_tfinalizar = False
+
+        if windowConfigurar.radioButton_chrome.isChecked() == True:
+            navegador = 'chrome'
+        elif windowConfigurar.radioButton_edge.isChecked() == True:
+            navegador = 'edge'
+        elif windowConfigurar.radioButton_firefox.isChecked() == True:
+            navegador = 'firefox'
+        elif windowConfigurar.radioButton_brave.isChecked() == True:
+            navegador = 'brave'
+        elif windowConfigurar.radioButton_chrome87.isChecked() == True:
+            navegador = 'chrome87'
+        elif windowConfigurar.radioButton_chrome86.isChecked() == True:
+            navegador = 'chrome86'
+        elif windowConfigurar.radioButton_chrome85.isChecked() == True:
+            navegador = 'chrome85'
+        elif windowConfigurar.radioButton_chrome84.isChecked() == True:
+            navegador = 'chrome84'
+
+        if windowConfigurar.checkBoxNavegador.isChecked() == True:
+            ativado_ocultarnavegador = True
+        else:
+            ativado_ocultarnavegador = False
+
+        if windowConfigurar.checkBoxAnonimo.isChecked() == True:
+            ativado_modoanonimo = True
+        else:
+            ativado_modoanonimo = False
+
+        if windowConfigurar.checkBoxUA.isChecked() == True:
+            ativado_useragent = True
+        else:
+            ativado_useragent = False
+
+        if windowConfigurar.checkBoxExtensao.isChecked() == True:
+            ativado_extensao = True
+        else:
+            ativado_extensao = False
+
+        if windowConfigurar.checkBoxProxy.isChecked() == True:
+            ativado_proxy = True
+        else:
+            ativado_proxy = False
+
+        return ativado_alertasonoro, tempo_para_inicio, ativado_programarinicio, ativado_reiniciarnav, tmin, tmax, ativado_tentreacoes, nacoes_meta, isolamento_meta, ativado_meta, nacoes_stories, tstories, ativado_stories, tblockaction, ativado_trocarperfil, ativado_esperar5m, ativado_manterlogin, meta_valor, ativado_metavalor, tfinalizar, pathbrave, ativado_tfinalizar, navegador, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy
+
+
+    def coletar_informações_login(self):
+        perfis = windowLogin.textEditContas.toPlainText()
+        email_plataforma = windowLogin.lineEdit_Login.text().lower().replace(" ", "")
+        senha_plataforma = windowLogin.lineEdit_Senha.text()
+        return perfis, email_plataforma, senha_plataforma
+
+
+    def definir_banco_login(self):
+        conn = sqlite3.connect('./storage/data/dados.db')
+        cursor = conn.cursor()
+        cursor = cursor.execute("SELECT * FROM dados")
+        dados = cursor.fetchall()
+        return conn, cursor, dados
+
+
+    def definir_banco_configs(self):
+        conn = sqlite3.connect('./storage/data/configs.db')
+        cursor = conn.cursor()
+        cursor = cursor.execute("SELECT * FROM configuracoes")
+        dados = cursor.fetchall()
+        return conn, cursor, dados
+
+
+    def carregar_informações_login(self, conn, cursor, dados):
+        lista_informações_login = []
+        if os.path.exists('./storage/data/dados.db') and dados != []:
+            for informações in dados:
+                for elementos in informações:
+                    lista_informações_login.append(elementos)
+        return lista_informações_login
+    
+
+    def carregar_informações_configurações(self, conn, cursor, dados):
+        lista_informações_configurações = []
+        if os.path.exists('./storage/data/configs.db') and dados != []:
+            for informações in dados:
+                for elementos in informações:
+                    lista_informações_configurações.append(elementos)
+        
+        return lista_informações_configurações
+
+
+    def definir_informações_tela_login(self, dados, lista_informações_login):
+        if dados != []:
+            try:
+                #vira os dados de login b64 pra str
+                email_plataforma = lista_informações_login[0].encode('utf-8')
+                email_plataforma = base64.b64decode(email_plataforma)
+                email_plataforma = email_plataforma.decode('utf-8')
+
+                #vira os dados de senha b64 pra str
+                senha_plataforma = lista_informações_login[1].encode('utf-8')
+                senha_plataforma = base64.b64decode(senha_plataforma)
+                senha_plataforma = senha_plataforma.decode('utf-8')
+
+                #vira os dados de perfis b64 pra str
+                perfis = lista_informações_login[2].encode('utf-8')
+                perfis = base64.b64decode(perfis)
+                perfis = perfis.decode('utf-8')
+
+                # define na interface as informações que são
+                # adquiridas do banco de dados dados.db
+                windowLogin.lineEdit_Login.setText(email_plataforma)
+                windowLogin.lineEdit_Senha.setText(senha_plataforma)
+                windowLogin.textEditContas.setText(perfis)
+            except:
+                try: windowLogin.lineEdit_Login.setText(str(dados[0][0]))
+                except: pass
+                try: windowLogin.lineEdit_Senha.setText(str(dados[0][1]))
+                except: pass
+                try: windowLogin.textEditContas.setText(str(dados[0][2]))
+                except: pass
+
+
+    def definir_informações_tela_configurações(self, dados, lista_informações_configurações):
+        if dados != []:
+            windowConfigurar.lineEditTMin.setText(str(lista_informações_configurações[0]))
+            windowConfigurar.lineEditTMax.setText(str(lista_informações_configurações[1]))
+            windowConfigurar.lineEditAcoes.setText(str(lista_informações_configurações[3]))
+            windowConfigurar.lineEditIsolamento.setText(str(lista_informações_configurações[4]))
+            windowConfigurar.lineEditAcoesStories.setText(str(lista_informações_configurações[6]))
+            windowConfigurar.lineEditTAssistindoStories.setText(str(lista_informações_configurações[7]))
+            windowConfigurar.lineEditBlockAction.setText(str(lista_informações_configurações[9]))
+            windowConfigurar.lineEditMetaValor.setText(str(lista_informações_configurações[14]))
+            windowConfigurar.lineEditFinalizar.setText(str(lista_informações_configurações[16]))
+            windowConfigurar.lineEdit_pathbrave.setText(str(lista_informações_configurações[17]))
+            windowConfigurar.lineEdit_ip.setText(str(lista_informações_configurações[24]))
+            windowConfigurar.lineEdit_porta.setText(str(lista_informações_configurações[25]))
+            windowConfigurar.lineEditProgramarInicio.setText(str(lista_informações_configurações[28]))
+
+            if "True" in lista_informações_configurações[2]:
+                windowConfigurar.checkBoxTempoEntreAcoes.setChecked(True)
+
+            if "True" in lista_informações_configurações[5]:
+                windowConfigurar.checkBoxMeta.setChecked(True)
+
+            if "True" in lista_informações_configurações[8]:
+                windowConfigurar.checkBoxStories.setChecked(True)
+
+            if "True" in lista_informações_configurações[10]:
+                windowConfigurar.checkBoxTrocarPefilSeNaoHouverAcoes.setChecked(True)
+
+            if "True" in lista_informações_configurações[11]:
+                windowConfigurar.checkBoxEsperarParaTrocarDePerfil.setChecked(True)
+
+            if "True" in lista_informações_configurações[13]:
+                windowConfigurar.checkBoxManterLogin.setChecked(True)
+
+            if "True" in lista_informações_configurações[15]:
+                windowConfigurar.checkBoxMetaValor.setChecked(True)
+
+            if "True" in lista_informações_configurações[18]:
+                windowConfigurar.checkBox_finalizar.setChecked(True)
+
+            if "True" in lista_informações_configurações[20]:
+                windowConfigurar.checkBoxNavegador.setChecked(True)
+
+            if "True" in lista_informações_configurações[21]:
+                windowConfigurar.checkBoxAnonimo.setChecked(True)
+
+            if "True" in lista_informações_configurações[22]:
+                windowConfigurar.checkBoxUA.setChecked(True)
+            
+            if "True" in lista_informações_configurações[23]:
+                windowConfigurar.checkBoxExtensao.setChecked(True)
+
+            if "True" in lista_informações_configurações[26]:
+                windowConfigurar.checkBoxProxy.setChecked(True)
+
+            if "True" in lista_informações_configurações[27]:
+                windowConfigurar.checkBoxProgramarInicio.setChecked(True)
+
+            if "True" in lista_informações_configurações[29]:
+                windowConfigurar.checkBoxAlertaSonoro.setChecked(True)
+
+            if "True" in lista_informações_configurações[12]:
+                windowConfigurar.checkBoxReiniciarNav.setChecked(True)
+
+            if "chrome" in lista_informações_configurações[19]:
+                windowConfigurar.radioButton_chrome.setChecked(True)
+
+            if "edge" in lista_informações_configurações[19]:
+                windowConfigurar.radioButton_edge.setChecked(True)
+
+            if "firefox" in lista_informações_configurações[19]:
+                windowConfigurar.radioButton_firefox.setChecked(True)
+
+            if "brave" in lista_informações_configurações[19]:
+                windowConfigurar.radioButton_brave.setChecked(True)
+
+            if "chrome87" in lista_informações_configurações[19]:
+                windowConfigurar.radioButton_chrome87.setChecked(True)
+
+            if "chrome86" in lista_informações_configurações[19]:
+                windowConfigurar.radioButton_chrome86.setChecked(True)
+
+            if "chrome85" in lista_informações_configurações[19]:
+                windowConfigurar.radioButton_chrome85.setChecked(True)
+
+            if "chrome84" in lista_informações_configurações[19]:
+                windowConfigurar.radioButton_chrome84.setChecked(True)
+
+
+    def salvar_informações_iniciais(self, email_plataforma, senha_plataforma, perfis, conn, cusror, dados):
+
+        # transforma o login em b64
+        base64_bytes = base64.b64encode(email_plataforma.encode('utf-8'))
+        email_plataforma = base64_bytes.decode('utf-8')
+
+        # transforma a senha em b64
+        base64_bytes = base64.b64encode(senha_plataforma.encode('utf-8'))
+        senha_plataforma = base64_bytes.decode('utf-8')
+
+        # transforma a lista de perfis em b64
+        base64_bytes = base64.b64encode(perfis.encode('utf-8'))
+        perfis = base64_bytes.decode('utf-8')
+
+        if dados == []:
+            query = (
+                f"INSERT INTO dados (email_plataforma, senha_plataforma, perfis) VALUES ('{email_plataforma}', '{senha_plataforma}', '{perfis}')"
+            )
+        else:
+            query = (
+               f"UPDATE dados SET email_plataforma = '{email_plataforma}', senha_plataforma = '{senha_plataforma}', perfis = '{perfis}'"
+            )
+        conn.execute(query)
+        conn.commit()
+        conn.close()
+
+
+    def salvar_informações_configurações(self, conn, cursor, dados, ativado_alertasonoro, tempo_para_inicio, ativado_programarinicio, ativado_reiniciarnav, tmin, tmax, ativado_tentreacoes, nacoes_meta, isolamento_meta, ativado_meta, nacoes_stories, tstories, ativado_stories, tblockaction, ativado_trocarperfil, ativado_esperar5m, ativado_manterlogin, meta_valor, ativado_metavalor, tfinalizar, pathbrave, ativado_tfinalizar, navegador, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy):
+        query = (
+            f"UPDATE configuracoes SET alerta_sonoro = '{ativado_alertasonoro}', tempo_para_inicio = '{tempo_para_inicio}', ativado_programarinicio = '{ativado_programarinicio}', tmin = '{tmin}', tmax = '{tmax}', ativado_reiniciarnav = '{ativado_reiniciarnav}', ativado_tentreacoes = '{ativado_tentreacoes}', nacoes_meta = '{nacoes_meta}', isolamento_meta = '{isolamento_meta}', ativado_meta = '{ativado_meta}', nacoes_stories = '{nacoes_stories}', tstories = '{tstories}', ativado_stories = '{ativado_stories}', tblockaction = '{tblockaction}', ativado_trocarperfil = '{ativado_trocarperfil}', ativado_esperar5m = '{ativado_esperar5m}', ativado_manterlogin = '{ativado_manterlogin}', meta_valor = '{meta_valor}', ativado_metavalor = '{ativado_metavalor}', tfinalizar = '{tfinalizar}', pathbrave = '{pathbrave}', ativado_tfinalizar = '{ativado_tfinalizar}', navegador = '{navegador}', ativado_ocultarnavegador = '{ativado_ocultarnavegador}', ativado_modoanonimo = '{ativado_modoanonimo}', ativado_useragent = '{ativado_useragent}', ativado_extensao = '{ativado_extensao}', proxy_ip = '{proxy_ip}', proxy_porta = '{proxy_porta}', ativado_proxy = '{ativado_proxy}'"
+        )
+        conn.execute(query)
+        conn.commit()
+        conn.close()
+
+
+    def definir_informações(self, perfis, email_plataforma, senha_plataforma):
+        Interface.perfis = perfis
+        Interface.email_plataforma = email_plataforma
+        Interface.senha_plataforma = senha_plataforma
+
+
+    def validar_informações_configurações(self, tmin, tmax, tempo_para_inicio, ativado_programarinicio, ativado_tentreacoes, nacoes_meta, isolamento_meta, ativado_meta, nacoes_stories, tstories, ativado_stories, tblockaction, ativado_trocarperfil, ativado_esperar5m, ativado_manterlogin, meta_valor, ativado_metavalor, tfinalizar, pathbrave, ativado_tfinalizar, navegador, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy):
+        salvar = True
+        if ativado_programarinicio == True:
+            if tempo_para_inicio == 'falha':
+                windowConfigurar.hide()
+                windowLogin.hide()
+                msg.setText('Verifique por letras ou espaços em branco no campo de programar para iniciar o bot.')
+                msg.setWindowTitle("Atenção.")
+                msg.exec_()
+                windowConfigurar.show()
+                print(f'[{Bot().current_time()}] Verifique por letras ou espaços em branco no campo de programar para iniciar o bot')
+                print(f'[{Bot().current_time()}] Caso queira desabilitar a função, basta desabilitar o checkbox ou zerar o valor (0)')
+                salvar = False
+
+        if ativado_tentreacoes == True:
+            if tmin == 'falha':
+                windowConfigurar.hide()
+                windowLogin.hide()
+                msg.setText('Verifique por letras ou espaços em branco no campo de tempo mínimo entre ações.')
+                msg.setWindowTitle("Atenção.")
+                msg.exec_()
+                windowConfigurar.show()
+                print(f'[{Bot().current_time()}] Verifique por letras ou espaços em branco no campo de tempo mínimo entre ações')
+                print(f'[{Bot().current_time()}] Caso queira desabilitar a função, basta desabilitar o checkbox ou zerar o valor (0)')
+                salvar = False
+
+            if tmax == 'falha':
+                windowConfigurar.hide()
+                windowLogin.hide()
+                msg.setText('Verifique por letras ou espaços em branco no campo de tempo máximo entre ações.')
+                msg.setWindowTitle("Atenção.")
+                msg.exec_()
+                print(f'[{Bot().current_time()}] Verifique por letras ou espaços em branco no campo de tempo máximo entre ações')
+                print(f'[{Bot().current_time()}] Caso queira desabilitar a função, basta desabilitar o checkbox ou zerar o valor (0)')
+                salvar = False
+                windowConfigurar.show()
+        
+        if ativado_meta == True:
+            if nacoes_meta == 'falha':
+                windowConfigurar.hide()
+                windowLogin.hide()
+                msg.setText('Verifique por letras ou espaços em branco no campo de número de ações da meta.')
+                msg.setWindowTitle("Atenção.")
+                msg.exec_()
+                print(f'[{Bot().current_time()}] Verifique por letras ou espaços em branco no campo de número de ações da meta')
+                print(f'[{Bot().current_time()}] Caso queira desabilitar a função, basta desabilitar o checkbox ou zerar o valor (0)')
+                salvar = False
+                windowConfigurar.show()
+
+            elif isolamento_meta == 'falha':
+                windowConfigurar.hide()
+                windowLogin.hide()
+                msg.setText('Verifique por letras ou espaços em branco no campo de tempo de isolamento da meta.')
+                msg.setWindowTitle("Atenção.")
+                msg.exec_()
+                print(f'[{Bot().current_time()}] Verifique por letras ou espaços em branco no campo de tempo de isolamento da meta')
+                print(f'[{Bot().current_time()}] Caso queira desabilitar a função, basta desabilitar o checkbox ou zerar o valor (0)')
+                salvar = False
+                windowConfigurar.show()
+
+        if ativado_stories == True:
+            if nacoes_stories == 'falha':
+                windowConfigurar.hide()
+                msg.setText('Verifique por letras ou espaços em branco no campo de número de ações para stories.')
+                msg.setWindowTitle("Atenção.")
+                msg.exec_()
+                print(f'[{Bot().current_time()}] Verifique por letras ou espaços em branco no campo de número de ações para stories')
+                print(f'[{Bot().current_time()}] Caso queira desabilitar a função, basta desabilitar o checkbox ou zerar o valor (0)')
+                salvar = False
+                windowConfigurar.show()
+
+            elif tstories == 'falha':
+                windowConfigurar.hide()
+                msg.setText('Verifique por letras ou espaços em branco no campo de tempo para visualizar stories.')
+                msg.setWindowTitle("Atenção.")
+                msg.exec_()
+                print(f'[{Bot().current_time()}] Verifique por letras ou espaços em branco no campo de tempo para visualizar stories')
+                print(f'[{Bot().current_time()}] Caso queira desabilitar a função, basta desabilitar o checkbox ou zerar o valor (0)')
+                salvar = False
+                windowConfigurar.show()
+
+        if ativado_metavalor == True:
+            if meta_valor == 'falha':
+                windowConfigurar.hide()
+                msg.setText('Verifique por letras ou espaços em branco no campo de meta de valor.')
+                msg.setWindowTitle("Atenção.")
+                msg.exec_()
+                print(f'[{Bot().current_time()}] Verifique por letras ou espaços em branco no campo de meta de valor')
+                print(f'[{Bot().current_time()}] Caso queira desabilitar a função, basta desabilitar o checkbox ou zerar o valor (0)')
+                salvar = False
+                windowConfigurar.show()
+
+        if ativado_tfinalizar == True:
+            if tfinalizar == 'falha':
+                windowLogin.hide()
+                windowConfigurar.hide()
+                msg.setText('Verifique por letras ou espaços em branco no campo de tempo para finalizar o bot.')
+                msg.setWindowTitle("Atenção.")
+                msg.exec_()
+                print(f'[{Bot().current_time()}] Verifique por letras ou espaços em branco no campo de tempo para finalizar o bot')
+                print(f'[{Bot().current_time()}] Caso queira desabilitar a função, basta desabilitar o checkbox ou zerar o valor (0)')
+                salvar = False
+                windowConfigurar.show()
+
+        if ativado_proxy == True:
+            if proxy_ip == '':
+                windowLogin.hide()
+                windowConfigurar.hide()
+                msg.setText('Verifique espaços em branco no campo de ip da proxy.')
+                msg.setWindowTitle("Atenção.")
+                msg.exec_()
+                print(f'[{Bot().current_time()}] Verifique espaços em branco no campo de ip da proxy')
+                print(f'[{Bot().current_time()}] Caso queira desabilitar a função, basta desabilitar o checkbox ou zerar o valor (0)')
+                salvar = False
+                windowConfigurar.show()
+
+            elif proxy_porta == '':
+                windowConfigurar.hide()
+                windowLogin.hide()
+                msg.setText('Verifique espaços em branco no campo de porta da proxy.')
+                msg.setWindowTitle("Atenção.")
+                msg.exec_()
+                print(f'[{Bot().current_time()}] Verifique espaços em branco no campo de porta da proxy')
+                print(f'[{Bot().current_time()}] Caso queira desabilitar a função, basta desabilitar o checkbox ou zerar o valor (0)')
+                salvar = False
+                windowConfigurar.show()
+
+        if tblockaction == 'falha':
+            windowConfigurar.hide()
+            windowLogin.hide()
+            msg.setText('Verifique por letras ou espaços em branco no campo de block action.')
+            msg.setWindowTitle("Atenção.")
+            msg.exec_()
+            print(f'[{Bot().current_time()}] Verifique por letras ou espaços em branco no campo de block action')
+            print(f'[{Bot().current_time()}] Caso queira desabilitar a função, basta zerar o valor (0)')
+            salvar = False
+            windowConfigurar.show()
+
+        if tblockaction == 0:
+            tblockaction = 1
+
+        if navegador == 'brave':
+            if pathbrave == "" or pathbrave == " " or "brave" not in pathbrave.lower():
+                windowConfigurar.hide()
+                windowLogin.hide()
+                msg.setText('Verifique o caminho do navegador brave.')
+                msg.setWindowTitle("Atenção.")
+                msg.exec_()
+                print(f'[{Bot().current_time()}] Verifique o caminho do navegador brave')
+                windowConfigurar.show()
+                salvar = False
+
+            else:
+                salvar = True
+
+        return salvar
+
+
+    def validar_informações(self, perfis, email_plataforma, senha_plataforma):
+        if len(perfis) < 5:
+            windowLogin.hide()
+            print(f'[{Bot().current_time()}] Insira os perfis que deseja utilizar para dar início ao processo.')
+            msg.setText('Insira os perfis que deseja utilizar para dar início ao processo.')
+            msg.setWindowTitle("Atenção.")
+            msg.exec_()
+            windowLogin.show()
+            iniciar = False
+
+        elif len(email_plataforma) < 4:
+            windowLogin.hide()
+            print(f'[{Bot().current_time()}] Insira o email da plataforma para dar início ao processo')
+            msg.setText('Insira o email da plataforma para dar início ao processo.')
+            msg.setWindowTitle("Atenção.")
+            msg.exec_()
+            windowLogin.show()
+            iniciar = False
+
+        elif len(senha_plataforma) < 3:
+            windowLogin.hide()
+            print(f'[{Bot().current_time()}] Insira a senha da plataforma para dar início ao processo')
+            msg.setText('Insira a senha da plataforma para dar início ao processo')
+            msg.setWindowTitle("Atenção.")
+            msg.exec_()
+            windowLogin.show()
+            iniciar = False
+
+        #validar também os line edits do campo da tela de configs
+
+        else:
+            iniciar = True
+
+        return iniciar
+
+
+class Bot:
+    def current_time(self):
+        time_atual = datetime.datetime.now().strftime("%H:%M:%S")
+        time_atual = str(time_atual)
+        return time_atual
+
+
+    def inicializar_variaveis(self):
+        Bot.key = { "https": "1bb221e42f42670f40b0ab6bd8b62db8" }
+        Bot.url = "https://sigasocial.com.br/scrobot/request.php"
+        Bot.token = None
+        Bot.pause = False
+        Bot.pos = 0
+        Bot.earned = 0
+        Bot.follows_perfil = 0
+        Bot.likes_perfil = 0
+        Bot.confirmações = 0
+        Bot.ações_stories = 0
+        Bot.total_tarefas = 0
+        Bot.tinicio = time.time()
+        
+
+    def login_atual(self, lista_perfis):
+        login = lista_perfis[Bot().pos][0]
+        senha = lista_perfis[Bot().pos][1]
+        return login, senha
+
+
+    def enviar_contabilização(self):
+        headers = {"User-Agent" : "Mozilla/5.0 (iPhone; CPU iPhone OS 7_1_2 like Mac OS X) AppleWebKit/537.51.2 (KHTML, like Gecko) OPiOS/10.2.0.93022 Mobile/11D257 Safari/9537.53"}
+        link = "https://www.scrobot.com.br/api/contabilizacao.php"
+        try: requests.get(link, timeout = 50, headers = headers)
+        except: pass
+
+
+    def enviar_contabilização_individual(self):
+        headers = {"User-Agent" : "Mozilla/5.0 (iPhone; CPU iPhone OS 7_1_2 like Mac OS X) AppleWebKit/537.51.2 (KHTML, like Gecko) OPiOS/10.2.0.93022 Mobile/11D257 Safari/9537.53"}
+        link = "https://www.scrobot.com.br/api/contabilizacao_single.php"
+        try:
+            confirmações = 0
+            while confirmações != Bot().confirmações:
+                confirmações += 1
+                requests.get(link, timeout = 50, headers = headers)
+                time.sleep(1)
+        except:
+            pass
+
+
+    def logar_sigasocial(self):
+        print(f'[{self.current_time()}] Logando no siga social')
+        while True:
+            payload = {
+                        "action":1,
+                        "key": Bot().key['https'],
+                        "email": Interface().email_plataforma,
+                        "password": Interface().senha_plataforma,
+                    }
+            try:
+                r = requests.post(self.url, timeout = 50, data=json.dumps(payload))
+                status = r.text
+                response = r.json()
+            except Exception:
+                print(Fore.RED + f"[{Bot().current_time()}] Sem conexão, tentando novamente")
+                time.sleep(random.uniform(1,100))
+                continue
+            else:
+                print(f'[{self.current_time()}] Login feito com o usuário: {Interface().email_plataforma}')
+                return status, response
+
+
+    def obter_perfis(self):
+        print(f'[{self.current_time()}] Obtendo lista de perfis')
+        while True:
+            payload = {
+                    "action":2,
+                    "key": Bot().key['https'],
+                    "token": (Bot.token)
+                }
+            try:
+                r = requests.post(self.url, timeout = 50, data=json.dumps(payload))
+                perfis_plataforma = r.json()  
+            except Exception:
+                print(Fore.RED + f"[{Bot().current_time()}] Sem conexão, tentando novamente")
+                time.sleep(random.uniform(1,100))
+                continue
+            else:           
+                return perfis_plataforma
+
+
+    def abrir_lista_perfis(self, perfis):
+        perfis = perfis.split('\n')
+
+        #gambiarra
+        x = 0
+        array = []
+        lista_perfis = []
+        for elementos in perfis:
+            if elementos != '' and elementos != " " and "\n" not in elementos:
+                x = x+1
+                string_lista = ''
+                for string in elementos:
+                    if string != " " and string != "\t":
+                        string_lista += string
+                    else:
+                        continue
+                array.append(string_lista)
+                string_lista = ''
+                if x % 2 == 0:
+                    lista_perfis.append(array + [False] + ['30/12/2599-23:59.59'])
+                    array = []
+                    x = 0
+
+        for listas in lista_perfis:
+            listas[0] = listas[0].replace("@", "")
+
+        if len(lista_perfis) == 1:
+            unico_perfil = True
+        else:
+            unico_perfil = False
+
+        return lista_perfis, unico_perfil
+
+
+    def verificar_perfis_validos(self, perfis_plataforma, lista_perfis, unico_perfil):
+        # definindo variável para não sair sem retorno
+        parar = False
+        
+        # perfis cadastrados no siga
+        perfis_cadastrados = []
+        for item in perfis_plataforma:
+            perfis_cadastrados.append(item['username'].lower())
+
+        # comparando se o perfil existe na lista
+        for items in lista_perfis:
+            if items[0].lower() in perfis_cadastrados:
+                items[2] = True
+            else:
+                print(f'[{self.current_time()}] Perfil {items[0]} não cadastrado no siga social')
+                if unico_perfil == True:
+                    parar = True
+
+        return lista_perfis, parar
+
+
+    def direcionar_url(self, LINK_tarefa, TIPO_tarefa):
+
+        driver.implicitly_wait(60)
+
+        if "Seguir" in TIPO_tarefa:
+            time.sleep(0.5)
+            driver.get('https://www.instagram.com/' + LINK_tarefa)
+        else:
+            time.sleep(0.5)
+            driver.get('https://www.instagram.com/p/' + LINK_tarefa)
+
+        driver.implicitly_wait(3)
+
+
+    def verificar_pagina(self, login):
+        print(f'[{Bot().current_time()}] Verificando se há restrições na tarefa')
+        pagina = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.XPATH, '//body'))).text
+
+        pular_missão = False
+        trocar_perfil_espera = False
+        bloqueio_verificação = False
+        razão = None
+
+        if 'This Account is Private' in pagina:
+            print(Fore.LIGHTYELLOW_EX + f'[{Bot().current_time()}] Conta privada! Pulando missão e recarregando a pagina.')
+            pular_missão = True
+            razão = 'privateaccount'
+        
+        elif "Sorry, this page isn't available." in pagina or "years old or over to see this profile" in pagina:
+            print(Fore.LIGHTYELLOW_EX + f'[{Bot().current_time()}] Página não disponível. Pulando missão e recarregando a página')
+            pular_missão = True
+            razão = 'pageerror'
+        
+        elif 'Please wait a few minutes before you try again.' in pagina:
+            print(Fore.LIGHTYELLOW_EX + f'[{Bot().current_time()}] Instagram pedindo para aguardar antes de realizar novas tarefas.')
+            trocar_perfil_espera = True
+
+        elif "/challenge/" in driver.current_url:
+            print(Fore.MAGENTA + f'[{Bot().current_time()}] Perfil {login} bloqueado por verificação.')
+            bloqueio_verificação = True
+
+        return razão, pular_missão, trocar_perfil_espera, bloqueio_verificação
+
+
+    def tempo_entre_ações(self, tmin, tmax, ativado_tentreacoes):
+        if ativado_tentreacoes == True:
+            tempo = random.uniform(tmin, tmax)
+            print(f'[{self.current_time()}] Aguardando {tempo:.0f} segundos para próxima ação.')
+            time.sleep(tempo)
+
+
+    def meta_de_valor(self, ativado_metavalor, meta_valor):
+        if ativado_metavalor == True and Bot().earned > meta_valor:
+            print(f"\n[{Bot().current_time()}] Você atingiu {meta_valor} R$ nessa aba. Processo finalizado")
+            driver.quit()
+            time.sleep(3600*24)
+            return os._exit(0)
+
+
+    def finalizar_operação(self, ativado_tfinalizar, tfinalizar):
+        calculo_tempo = (time.time() - Bot().tinicio) / 3600
+        if ativado_tfinalizar == True and calculo_tempo > tfinalizar:
+            print(f"\n[{Bot().current_time()}] Você atingiu o tempo programado para finalizar. Processo encerrado.")
+            driver.quit()
+            time.sleep(3600*24)
+            return os._exit(0)
+
+    
+    def definir_variaveis_locais(self):
+        limite_seguidores = False
+        trocar_perfil_espera = False
+        bloqueio_verificação = False
+        bloqueio_ação = False
+        bloqueio_email = False
+        bloqueio_dadosincorretos = False
+        sem_tarefa = False
+        trocar_perfil_meta = False
+        bloqueio_ação_7d = False
+        razão = None
+
+        return razão, limite_seguidores, trocar_perfil_espera, bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos, sem_tarefa, trocar_perfil_meta, bloqueio_ação_7d
+
+
+    def processo(self, tempo_para_inicio, ativado_programarinicio, ativado_reiniciarnav, perfis, tmin, tmax, ativado_tentreacoes, nacoes_meta, isolamento_meta, ativado_meta, nacoes_stories, tstories, ativado_stories, tblockaction, ativado_trocarperfil, ativado_esperar5m, ativado_manterlogin, meta_valor, ativado_metavalor, tfinalizar, pathbrave, ativado_tfinalizar, navegador, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy):
+        
+        # verifica se foi programado tempo para iniciar
+        if ativado_programarinicio == True:
+            print(f"[{Bot().current_time()}] Bot programado para iniciar em {tempo_para_inicio}h")
+            time.sleep(tempo_para_inicio*3600)
+
+        time.sleep(1)
+
+        # inicializa algumas variáveis da classe
+        Bot().inicializar_variaveis()
+
+        # faz login no siga social e avalia o status do login
+        status, response = Bot().logar_sigasocial()
+
+        # se o usuário for incorreto, então o processo é pausado
+        if "Usuario ou senha incorretos" in status:
+            print(Fore.RED + f'[{self.current_time()}] Email ou senha incorreta, corrija os dados do siga social e faça login novamente')
+           
+        # se o status for diferente de usuário incorreto, então continua processo
+        else:
+            Bot.token = response['token']
+
+            # baixa a lista de perfis ativos do site
+            perfis_plataforma = Bot().obter_perfis()
+
+            # abre a lista de perfis no formato login(\n)senha
+            lista_perfis, unico_perfil = Bot().abrir_lista_perfis(perfis)
+
+            # verifica os perfis que são válidos na plataforma
+            lista_perfis, parar = Bot().verificar_perfis_validos(perfis_plataforma, lista_perfis, unico_perfil)
+            
+            # se não tiver perfis válidos, então o processo é finalizado
+            if parar == True:
+                print(f'[{Bot().current_time()}] Não há mais perfis para efetuar novas tentativas')
+                time.sleep(3600*24)
+                return os._exit(0)
+
+            # abre o navegador para dar início ao login no instagram
+            status = Bot().abrir_navegador(navegador, pathbrave, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy)
+
+            # verifica se o checkbox de adicionar extensão está marcado
+            if ativado_extensao == True:
+                print(f"[{Bot().current_time()}] Aguardando 120 segundos para adicionar extensão.")
+                time.sleep(120)
+
+            # se o status do navegador retornar algum erro, então informa que houv eerro e finaliza o bot
+            if status != True:
+                if "máquina de destino" in str(status):
+                    print(f"\n[{Bot().current_time()}] O navegador selecionado encontra-se travado e, por isso, não pôde ser incializado. Reinicie o PC.")
+                else:
+                    print(f'[{Bot().current_time()}] Falha ao iniciar navegador: {status}')
+                   
+                try: driver.quit()
+                except: pass
+                time.sleep(3600*24)
+                return os._exit(0)
+
+            # define mais algumas variáveis locais dentro da def
+            primeiro_login = True
+            ação = 0
+            ntarefa = 1
+            
+            # define o handle a ser utilizado
+            driver.switch_to.window(driver.window_handles[0])
+
+            # inicia o loop
+            while True:
+                try:
+                    # define algumas variáveis locais dentro da def
+                    razão, limite_seguidores, trocar_perfil_espera, bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos, sem_tarefa, trocar_perfil_meta, bloqueio_ação_7d = self.definir_variaveis_locais()
+
+                    # se for o primeiro login, então iniciará o processo de login
+                    # no instagram sem passar por dentro do loop
+                    
+                    if primeiro_login == True:
+                        primeiro_login = False
+                        login, senha = Bot().login_atual(lista_perfis)
+                        status_login = Bot().logar_instagram(login, senha)
+                        
+                        # se o elemento que confirma login não for identificado na página,
+                        # então busca por possíveis restrições nesse perfil de instagram
+
+                        if status_login == False:
+                            
+                            # verifica se há algum tipo de bloqueio
+                            bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos = Bot().avaliar_login(login, lista_perfis)
+                            
+                            # se houver bloqueio, então redireciona para a def que bloqueia esse perfil
+                            if bloqueio_verificação == True or bloqueio_ação == True or bloqueio_email == True or bloqueio_dadosincorretos == True: 
+                                self.bloquear_perfil(bloqueio_ação_7d, sem_tarefa, trocar_perfil_meta, isolamento_meta, lista_perfis, tblockaction, bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos, limite_seguidores, trocar_perfil_espera)
+                                
+                                # se houver mais de um perfil, então troca de perfil e 
+                                # tenta novamente o login nesse novo perfil.
+                                if unico_perfil == False:
+                                    ação = Bot().trocar_perfil(lista_perfis, ação)
+                                    primeiro_login = True
+
+                                    # reiniciar o navegador
+                                    if ativado_reiniciarnav == True:
+                                        driver.quit()
+                                        print(f'\n[{Bot().current_time()}] Reiniciando navegador -> Troca de user agent\n')
+                                        time.sleep(3)
+                                        ativado_useragent = True
+                                        Bot().abrir_navegador(navegador, pathbrave, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy)
+                                        primeiro_login = True
+
+                                    # independente da condição, continuar
+                                    continue
+
+                                # se tiver apenas um perfil disponivel, então informa ao
+                                # usuário que não foi possível fazer login nesse perfil.
+                                else:
+                                    print(f"[{Bot().current_time()}] Único perfil disponível impedido de efetuar login.")
+                                    driver.quit()
+                                    time.sleep(3600*24)
+                                    return os._exit(0)
+
+                        # se o login tiver sido efetuado com sucesso
+                        # então troca o status da variável para que não entre
+                        # mais nesse ciclo do primeiro login
+                        else:
+                            primeiro_login = False
+                            time.sleep(1)
+                            driver.get('https://www.instagram.com/'+login)
+
+
+                    print(Style.BRIGHT + f'\n>>> Realizando tarefa número {ntarefa}\n')
+
+                    # verifica o login e senha dos perfis que estão nessa pos (Bot().pos)
+                    login, senha = Bot().login_atual(lista_perfis)
+
+                    # pega a tarefa no site do siga social
+                    sem_tarefa, ID_tarefa, LINK_tarefa, TIPO_tarefa = Bot().pegar_tarefa(login, unico_perfil, ativado_trocarperfil)
+
+                    # se o limite de tempo para pegar essa tarefa for atingido, então bloqueia o perfil por um tempo curto
+                    if sem_tarefa == True:
+                        self.bloquear_perfil(bloqueio_ação_7d, sem_tarefa, trocar_perfil_meta, isolamento_meta, lista_perfis, tblockaction, bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos, limite_seguidores, trocar_perfil_espera)
+                        ação = Bot().trocar_perfil(lista_perfis, ação)
+                        primeiro_login = True
+                        continue
+
+                    # direciona para a URL da tarefa
+                    self.direcionar_url(LINK_tarefa, TIPO_tarefa)
+
+                    # se a tarefa tiver sido baixada do site, então redireciona para essa tarefa e verifica a página (perfil privado, etc..)
+                    razão, pular_missão, trocar_perfil_espera, bloqueio_verificação = self.verificar_pagina(login)
+
+                    # se a verificação da página retornar para pular o perfil, então chama a def que pula perfil
+                    if pular_missão == True:
+                        Bot().pular_tarefa(login, ID_tarefa, razão)
+                        Bot().tempo_entre_ações(tmin, tmax, ativado_tentreacoes)
+                        continue
+
+                    # se a conta sofrer bloqueio de verificação ...
+                    elif bloqueio_verificação == True:
+                        # se tiver mais de um perfil, então bloqueia permanentemente esse perfil
+                        # e efetua a troca de perfis (redefinindo a var de primeiro login pra True)
+                        if unico_perfil == False:
+                            self.bloquear_perfil(bloqueio_ação_7d, sem_tarefa, trocar_perfil_meta, isolamento_meta, lista_perfis, tblockaction, bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos, limite_seguidores, trocar_perfil_espera)
+                            ação = Bot().trocar_perfil(lista_perfis, ação)
+                            primeiro_login = True
+                            continue
+
+                        # se tiver apenas um perfil disponível, então é informado que o perfil está
+                        # impossibilitado de efetuar login.
+                        else:
+                            print(Style.BRIGHT + f"[{Bot().current_time()}] Único perfil disponível impedido de realizar tarefas.")
+                            driver.quit()
+                            time.sleep(3600*24)
+                            return os._exit(0)
+
+                    # se o instagram apresentar a mensagem que o perfil está efetuando ações
+                    # muito rápido, então troca o perfil em caso de + de 1 perfil
+                    elif trocar_perfil_espera == True:
+                        if unico_perfil == False:
+                            self.bloquear_perfil(bloqueio_ação_7d, sem_tarefa, trocar_perfil_meta, isolamento_meta, lista_perfis, tblockaction, bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos, limite_seguidores, trocar_perfil_espera)
+                            ação = Bot().trocar_perfil(lista_perfis, ação)
+                            primeiro_login = True
+                            continue
+
+                        # do contrário (apenas um perfil), informa o usuário que o perfil está em espera
+                        # por 30 minutos e aguarda esse intervalo
+                        else:
+                            print(f"[{Bot().current_time()}] Único perfil disponível está em espera por trinta minutos.")
+                            time.sleep(60*30)
+                            continue
+
+                    
+                    # se o tipo de tarefa for seguir....
+                    if TIPO_tarefa == 'Seguir':
+                        # redireciona pra def que efetua o clique no botão follow
+                        falha, seguiu = self.seguir(LINK_tarefa, login, ID_tarefa)
+                        
+                        # se a tarefa já tiver sido realizada
+                        if seguiu == False:
+                            self.tempo_entre_ações(tmin, tmax, ativado_tentreacoes)
+                            continue
+
+                        # se a def de seguir devolver que o status do follow for True
+                        elif seguiu == True:
+
+                            # faz a verificação se realmente foi True esse status
+                            razão, confirmar, bloqueio_ação, limite_seguidores, pular, bloqueio_verificação, bloqueio_ação_7d = self.verificar_follow(login)
+                            
+                            # se a def seguir devolver True e a def de verificação devolver True, então...
+                            if confirmar == True:
+
+                                # redireciona pra def que confirma a tarefa
+                                ntarefa, ação = self.confirmar_tarefa(ação, login, ID_tarefa, ntarefa, TIPO_tarefa)
+
+                                # redireciona pra def que avalia se já fez o valor por aba definido
+                                self.meta_de_valor(ativado_metavalor, meta_valor)
+
+                                # redireciona pra def que avalia se o bot já atingiu o tempo programado p/ finalizar
+                                self.finalizar_operação(ativado_tfinalizar, tfinalizar)
+
+                                # redireciona pra def que avalia se já atingiu a meta de ações
+                                trocar_perfil_meta, ação = Bot().meta_ações(ação, ativado_meta, nacoes_meta, isolamento_meta, unico_perfil)
+                                
+                                # se já tiver atingido a meta de ações:
+                                if trocar_perfil_meta == True:
+                                    self.bloquear_perfil(bloqueio_ação_7d, sem_tarefa, trocar_perfil_meta, isolamento_meta, lista_perfis, tblockaction, bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos, limite_seguidores, trocar_perfil_espera)
+                                    ação = Bot().trocar_perfil(lista_perfis, ação)
+                                    primeiro_login = True
+                                    continue
+
+                                # se não tiver atingido a meta de ações:
+                                else:
+
+                                    # assiste stories caso já tenha atingido o número de ações determinado
+                                    self.stories(login, nacoes_stories, tstories, ativado_stories)
+
+                                    # espera o tempo entre ações
+                                    Bot().tempo_entre_ações(tmin, tmax, ativado_tentreacoes)
+                                    continue
+
+                            # se tiver sofrido bloqueio de ação    
+                            elif bloqueio_ação == True or bloqueio_ação_7d == True:
+
+                                # se tiver mais de um perfil
+                                if unico_perfil == False:
+                                    
+                                    # redireciona pra def que faz o bloqueio do perfil
+                                    self.bloquear_perfil(bloqueio_ação_7d, sem_tarefa, trocar_perfil_meta, isolamento_meta, lista_perfis, tblockaction, bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos, limite_seguidores, trocar_perfil_espera)
+                                    
+                                    # redireciona pra def que faz a troca de perfil
+                                    ação = self.trocar_perfil(lista_perfis, ação)
+
+                                    # redefine o status da variável que força o inicio do login no insta
+                                    primeiro_login = True
+                                    
+                                    # reiniciar o navegador
+                                    if ativado_reiniciarnav == True:
+                                        driver.quit()
+                                        print(f'\n[{Bot().current_time()}] Reiniciando navegador -> Troca de user agent\n')
+                                        time.sleep(3)
+                                        ativado_useragent = True
+                                        Bot().abrir_navegador(navegador, pathbrave, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy)
+                                        primeiro_login = True
+
+                                    # independente da condição, continuar
+                                    continue
+
+
+                                # se for mais de um perfil disponível
+                                else:
+                                    # só um perfil
+                                    print(f'[{Bot().current_time()}] Aguardando tempo de bloqueio de ação: {tblockaction:.0f}m')
+                                    Interface().bloquear_por_ação(lista_perfis)
+
+                                    # se a opção de manter login estiver marcada como false
+                                    if ativado_manterlogin == False:
+                                        driver.get("https://www.instagram.com/accounts/logout/")
+
+                                    # espera o tempo de block action
+                                    time.sleep(float(tblockaction*60))
+
+                                    # se a opção de manter login estiver marcada como false
+                                    if ativado_manterlogin == False:
+                                        primeiro_login = True
+
+                                    # reiniciar o navegador
+                                    if ativado_reiniciarnav == True:
+                                        driver.quit()
+                                        print(f'\n[{Bot().current_time()}] Reiniciando navegador -> Troca de user agent\n')
+                                        time.sleep(3)
+                                        ativado_useragent = True
+                                        Bot().abrir_navegador(navegador, pathbrave, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy)
+                                        primeiro_login = True
+
+                                    # continua o while
+                                    continue
+                                
+                            # verifica por limite de seguidores
+                            elif limite_seguidores == True:
+                                if unico_perfil == False:
+                                    self.bloquear_perfil(bloqueio_ação_7d, sem_tarefa, trocar_perfil_meta, isolamento_meta, lista_perfis, tblockaction, bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos, limite_seguidores, trocar_perfil_espera)
+                                    ação = self.trocar_perfil(lista_perfis, ação)
+                                    primeiro_login = True
+                                    continue
+                                else:
+                                    print(f'[{Bot().current_time()}] Seu único perfil atingiu um valor próximo ou igual a 7500 seguidores.')
+                                    driver.quit()
+                                    time.sleep(3600*24)
+                                    return os._exit(0)
+
+                            # verifica por bloqueio de ação
+                            elif bloqueio_verificação == True:
+                                if unico_perfil == False:
+                                    self.bloquear_perfil(bloqueio_ação_7d, sem_tarefa, trocar_perfil_meta, isolamento_meta, lista_perfis, tblockaction, bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos, limite_seguidores, trocar_perfil_espera)
+                                    ação = self.trocar_perfil(lista_perfis, ação)
+                                    primeiro_login = True
+                                    continue
+                                else:
+                                    print(f'[{Bot().current_time()}] Seu único perfil está bloqueado por verificação.')
+                                    driver.quit()
+                                    time.sleep(3600*24)
+                                    return os._exit(0)
+
+                            # verifica se o status da variável é pular
+                            elif pular == True:
+                                Bot().pular_tarefa(login, ID_tarefa, razão)
+                                Bot().tempo_entre_ações(tmin, tmax, ativado_tentreacoes)
+                                continue
+
+                        # avalia se ocorreu alguma falha durante o processo de seguir
+                        elif falha == True:
+                            continue
+                    
+                    
+                    
+                    # se a tarefa for do tipo curtir
+                    else:
+
+                        # redireciona para a def de curtir
+                        razão, pular_missão, curtiu = self.curtir(LINK_tarefa, login, ID_tarefa)
+
+                        # se a def de curtir devolver que deve pular missão....
+                        if pular_missão == True:
+                            Bot().pular_tarefa(login, ID_tarefa, razão)
+                            Bot().tempo_entre_ações(tmin, tmax, ativado_tentreacoes)
+                            continue
+
+                        # se não tiver efetuado a curtida...
+                        elif curtiu == False:
+                            print(f'{Bot().current_time()} Não foi possível efetuar a curtida, buscando nova tarefa.')
+                            continue
+
+                        # se tiver efetuado a curtida..
+                        elif curtiu == True:
+
+                            # redireciona para a verificação
+                            confirmar, bloqueio_ação, bloqueio_ação_7d = self.verificar_curtida(login)
+                            
+                            # se a verificação retornar que a curtida foi feita...
+                            if confirmar == True:
+
+                                # redireciona para confirmar a tarefa
+                                ntarefa, ação = self.confirmar_tarefa(ação, login, ID_tarefa, ntarefa, TIPO_tarefa)
+
+                                # redireciona para avaliar se a meta de valor já foi atingida
+                                self.meta_de_valor(ativado_metavalor, meta_valor)
+
+                                # redireciona para avaliar se já atingiu o tempo programado para finalizar
+                                self.finalizar_operação(ativado_tfinalizar, tfinalizar)
+
+                                # redireciona para avaliar se a meta de ações já foi atingida
+                                trocar_perfil_meta, ação = self.meta_ações(ação, ativado_meta, nacoes_meta, isolamento_meta, unico_perfil)
+                                
+                                # trocar o perfil se atingir a meta
+                                if trocar_perfil_meta == True:
+                                    self.bloquear_perfil(bloqueio_ação_7d, sem_tarefa, trocar_perfil_meta, isolamento_meta, lista_perfis, tblockaction, bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos, limite_seguidores, trocar_perfil_espera)
+                                    ação = self.trocar_perfil(lista_perfis, ação)
+                                    primeiro_login = True
+                                    continue
+                                
+                                # se não tiver atingido a meta
+                                else:
+
+                                    # redireciona para a def que avalia se é pra assistir stories
+                                    self.stories(login, nacoes_stories, tstories, ativado_stories)
+
+                                    # redireciona para a def tempo entre ações
+                                    self.tempo_entre_ações(tmin, tmax, ativado_tentreacoes)
+                                    continue
+                            
+                            # se tiver sofrido bloqueio de ação..
+                            elif bloqueio_ação == True or bloqueio_ação_7d == True:
+
+                                # se não for um único perfil..
+                                if unico_perfil == False:
+                                    self.bloquear_perfil(bloqueio_ação_7d, sem_tarefa, trocar_perfil_meta, isolamento_meta, lista_perfis, tblockaction, bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos, limite_seguidores, trocar_perfil_espera)
+                                    ação = self.trocar_perfil(lista_perfis, ação)
+                                    primeiro_login = True
+                                    
+                                    # reiniciar o navegador
+                                    if ativado_reiniciarnav == True:
+                                        driver.quit()
+                                        print(f'\n[{Bot().current_time()}] Reiniciando navegador -> Troca de user agent\n')
+                                        time.sleep(3)
+                                        ativado_useragent = True
+                                        Bot().abrir_navegador(navegador, pathbrave, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy)
+                                        primeiro_login = True
+
+                                    # independente da condição, continuar
+                                    continue
+                                
+                                # se for um único perfil..
+                                else:
+                                    print(Fore.BLUE + f'[{Bot().current_time()}] Seu único perfil está bloqueado temporariamente, aguardando {tblockaction}m.')
+                                    
+                                    # se a opção de manter login estiver marcada como false
+                                    if ativado_manterlogin == False:
+                                        driver.get("https://www.instagram.com/accounts/logout/")
+
+                                    # espera o tempo de block action
+                                    time.sleep(float(tblockaction*60))
+
+                                    # se a opção de manter login estiver marcada como false
+                                    if ativado_manterlogin == False:
+                                        primeiro_login = True
+                                        continue
+
+                                    # reiniciar o navegador
+                                    if ativado_reiniciarnav == True:
+                                        driver.quit()
+                                        print(f'\n[{Bot().current_time()}] Reiniciando navegador -> Troca de user agent\n')
+                                        time.sleep(3)
+                                        ativado_useragent = True
+                                        Bot().abrir_navegador(navegador, pathbrave, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy)
+                                        primeiro_login = True
+                                        continue
+                
+
+                except (IndexError):
+                    print(Fore.RED + "Perfis inseridos no formato incorreto. Verifique se você inseriu no formato: ")
+                    print(Fore.YELLOW + "PERFIL")
+                    print(Fore.YELLOW + "SENHA")
+                    time.sleep(3600)
+                    try: driver.quit
+                    except: pass
+                    finally: os._exit(0)
+
+
+                except (ConnectionError, ConnectionAbortedError, ConnectionResetError, ConnectionResetError) as e:
+                    print(Fore.RED + "Erro de conexão com a internet...")
+                    if "ERR_PROXY_CONNECTION_FAILED" in str(traceback.format_exc()):
+                        print(Fore.RED + "Verifique o estado da proxy.")
+                        try: 
+                            driver.quit()
+                        except: 
+                            pass
+                        finally:
+                            time.sleep(3600*24)
+                            os._exit(0)
+                    else:
+                        print(e)
+                        continue
+
+
+                except (WebDriverException) as e:
+                    erro = traceback.format_exc()
+                    print(e)
+                    time.sleep(3)
+                    try: driver.quit()
+                    except: pass
+                    Bot().abrir_navegador(navegador, pathbrave, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy)
+                    primeiro_login = True
+                    with open("traceback.txt", "w+") as trace:
+                        trace.write(str(erro))
+                    continue
+                
+
+                except Exception as e:
+                    erro = traceback.format_exc()
+                    print(e)
+                    with open("traceback.txt", "w+") as trace:
+                        trace.write(str(erro))
+                    continue
+
+
+    #verificar ativado meta
+    def meta_ações(self, ação, ativado_meta, nacoes_meta, isolamento_meta, unico_perfil):
+        if ativado_meta == True:
+            if ação == nacoes_meta:
+                if unico_perfil == True:
+                    ação = 0
+                    print(Fore.CYAN + f'[{Bot().current_time()}] Meta de ações atingida, esperando {isolamento_meta:.0f}m')
+                    time.sleep(int(isolamento_meta*60))
+                    trocar_perfil_meta = False
+                    return trocar_perfil_meta, ação
+                else:
+                    ação = 0
+                    print(Fore.CYAN + f'[{Bot().current_time()}] Meta de ações atingida.')
+                    trocar_perfil_meta = True
+                    return trocar_perfil_meta, ação
+            else:
+                trocar_perfil_meta = False
+                return trocar_perfil_meta, ação
+        else:
+            trocar_perfil_meta = False
+            ação = 0
+            return trocar_perfil_meta, ação
+
+
+    def verificar_curtida(self, login):
+        bloqueio_ação_7d = False
+
+        try:
+            driver.find_element_by_xpath("//*[@aria-label='Unlike']")
+            print(f'[{Bot().current_time()}] Verificação concluída, tarefa ok.')
+            confirmar = True
+            bloqueio_ação = False
+            return confirmar, bloqueio_ação, bloqueio_ação_7d
+
+        except (NoSuchElementException, TimeoutException):
+            try:
+                driver.find_element_by_xpath("//*[text()='Report a Problem']")
+
+                if "this action will be unavailable for you until" in driver.find_element_by_xpath('//body').text:
+                    bloqueio_ação_7d = True
+                    print(f'[{Bot().current_time()}] Perfil {login} bloqueado por 7 dias')
+
+                else:
+                    bloqueio_ação = True
+                    print(Fore.BLUE + f'[{Bot().current_time()}] Perfil {login} bloqueado temporariamente')
+
+                confirmar = False
+                return confirmar, bloqueio_ação, bloqueio_ação_7d
+
+            except (NoSuchElementException, TimeoutException):
+                print(f'{Bot().current_time()} Tarefa não foi realizada, buscando nova tarefa...')
+                bloqueio_ação = False
+                confirmar = False
+                return confirmar, bloqueio_ação, bloqueio_ação_7d
+
+
+    def curtir(self, LINK_tarefa, login, ID_tarefa):
+
+        print(f'[{Bot().current_time()}] Executando curtida no link: https://www.instagram.com/p/'+LINK_tarefa)
+
+        try:
+            WebDriverWait(driver, 2).until(EC.presence_of_element_located((By.XPATH,("//*[@aria-label='Unlike']"))))
+            print(Fore.YELLOW + f'[{Bot().current_time()}] Tarefa ja foi executada anteriormente. Pularemos essa missão.')
+            pular_missão = True
+            curtiu = False
+            razão = 'tasknotconfirmed'
+            return razão, pular_missão, curtiu
+
+        except (NoSuchElementException, TimeoutException):
+            try:
+                like_btn = WebDriverWait(driver, 4).until(EC.presence_of_element_located((By.XPATH,("//*[@aria-label='Like']"))))
+                time.sleep(random.uniform(1,3))
+                ActionChains(driver).move_to_element(like_btn).click().perform()
+                pular_missão = False
+                curtiu = True
+                razão = None
+                return razão, pular_missão, curtiu
+            
+            except (NoSuchElementException, TimeoutException):
+                pular_missão = False
+                curtiu = False
+                razão = None
+                return razão, pular_missão, curtiu
+    
+
+    def trocar_perfil(self, lista_perfis, ação):
+        Bot.follows_perfil = 0
+        Bot.likes_perfil = 0
+
+        print(f"\n[{Bot().current_time()}] Efetuando a troca de perfil.")
+
+        driver.get('https://www.instagram.com/accounts/logout')
+        imprimir_mensagem = True
+        while lista_perfis[Bot().pos][2] == False:
+
+            data_agora = datetime.datetime.now()
+            data_agora = "%s/%s/%s-%s:%s.%s" % (data_agora.day, data_agora.month, data_agora.year, data_agora.hour, data_agora.minute, data_agora.second)
+            data_agora = datetime.datetime.strptime(str(data_agora), "%d/%m/%Y-%H:%M.%S")
+            data_array = datetime.datetime.strptime(str(lista_perfis[Bot().pos][3]), "%d/%m/%Y-%H:%M.%S")
+            
+            if data_agora >= data_array:
+                lista_perfis[Bot().pos][2] = True
+                break
+            else:
+                Bot.pos += 1
+                if Bot().pos > len(lista_perfis) - 1:
+                    Bot.pos = 0
+                    if imprimir_mensagem == True:
+                        imprimir_mensagem = False
+                        print(f"[{Bot().current_time()}] Aguardando disponibilidade de perfis.")
+                    continue
+        
+        ação = 0
+        return ação
+
+    # def deve sofrer modificações
+    def bloquear_perfil(self, bloqueio_ação_7d, sem_tarefa, trocar_perfil_meta, isolamento_meta, lista_perfis, tblockaction, bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos, limite_seguidores, trocar_perfil_espera):
+        if bloqueio_verificação == True:
+            lista_perfis[Bot().pos][2] = False
+            fimDoBlock = datetime.datetime.now() + datetime.timedelta(days=365)
+            lista_perfis[Bot().pos][3] = "%s/%s/%s-%s:%s.%s" % (fimDoBlock.day, fimDoBlock.month, fimDoBlock.year, fimDoBlock.hour, fimDoBlock.minute, fimDoBlock.second)
+            print(f'[{Bot().current_time()}] Esse perfil será isolado permanentemente nessa sessão.')
+            Interface().bloquear_por_verificação(lista_perfis)
+        
+        elif bloqueio_ação == True:
+            lista_perfis[Bot().pos][2] = False
+            fimDoBlock = datetime.datetime.now() + datetime.timedelta(minutes=float(tblockaction))
+            lista_perfis[Bot().pos][3] = "%s/%s/%s-%s:%s.%s" % (fimDoBlock.day, fimDoBlock.month, fimDoBlock.year, fimDoBlock.hour, fimDoBlock.minute, fimDoBlock.second)
+            print(f'[{Bot().current_time()}] Esse perfil será isolado por {tblockaction}m.')
+            Interface().bloquear_por_ação(lista_perfis)
+
+
+        elif bloqueio_ação_7d == True:
+            lista_perfis[Bot().pos][2] = False
+            fimDoBlock = datetime.datetime.now() + datetime.timedelta(days=365)
+            lista_perfis[Bot().pos][3] = "%s/%s/%s-%s:%s.%s" % (fimDoBlock.day, fimDoBlock.month, fimDoBlock.year, fimDoBlock.hour, fimDoBlock.minute, fimDoBlock.second)
+            print(f'[{Bot().current_time()}] Esse perfil será isolado permanentemente nessa sessão.')
+            Interface().bloquear_por_ação_7_dias(lista_perfis)
+
+
+        elif bloqueio_email == True:
+            lista_perfis[Bot().pos][2] = False
+            fimDoBlock = datetime.datetime.now() + datetime.timedelta(days=365)
+            lista_perfis[Bot().pos][3] = "%s/%s/%s-%s:%s.%s" % (fimDoBlock.day, fimDoBlock.month, fimDoBlock.year, fimDoBlock.hour, fimDoBlock.minute, fimDoBlock.second)
+            print(f'[{Bot().current_time()}] Esse perfil será isolado permanentemente nessa sessão.')
+            Interface().bloquear_por_verificação(lista_perfis)
+
+        elif bloqueio_dadosincorretos == True:
+            lista_perfis[Bot().pos][2] = False
+            fimDoBlock = datetime.datetime.now() + datetime.timedelta(days=365)
+            lista_perfis[Bot().pos][3] = "%s/%s/%s-%s:%s.%s" % (fimDoBlock.day, fimDoBlock.month, fimDoBlock.year, fimDoBlock.hour, fimDoBlock.minute, fimDoBlock.second)
+            print(f'[{Bot().current_time()}] Esse perfil será isolado permanentemente nessa sessão.')
+            Interface().bloquear_por_dados_incorretos(lista_perfis)
+        
+        elif limite_seguidores == True:
+            lista_perfis[Bot().pos][2] = False
+            fimDoBlock = datetime.datetime.now() + datetime.timedelta(days=365)
+            lista_perfis[Bot().pos][3] = "%s/%s/%s-%s:%s.%s" % (fimDoBlock.day, fimDoBlock.month, fimDoBlock.year, fimDoBlock.hour, fimDoBlock.minute, fimDoBlock.second)
+            print(f'[{Bot().current_time()}] Esse perfil será isolado permanentemente nessa sessão.')
+            Interface().bloquear_por_verificação(lista_perfis)
+
+        elif trocar_perfil_espera == True:
+            lista_perfis[Bot().pos][2] = False
+            fimDoBlock = datetime.datetime.now() + datetime.timedelta(minutes=30)
+            lista_perfis[Bot().pos][3] = "%s/%s/%s-%s:%s.%s" % (fimDoBlock.day, fimDoBlock.month, fimDoBlock.year, fimDoBlock.hour, fimDoBlock.minute, fimDoBlock.second)
+            print(f'[{Bot().current_time()}] Esse perfil será isolado por trinta minutos.')
+            Interface().bloquear_por_espera(lista_perfis)
+
+        elif sem_tarefa == True:
+            lista_perfis[Bot().pos][2] = False
+            fimDoBlock = datetime.datetime.now() + datetime.timedelta(minutes=5)
+            lista_perfis[Bot().pos][3] = "%s/%s/%s-%s:%s.%s" % (fimDoBlock.day, fimDoBlock.month, fimDoBlock.year, fimDoBlock.hour, fimDoBlock.minute, fimDoBlock.second)
+            print(f'[{Bot().current_time()}] Esse perfil será isolado por cinco minutos.')
+
+        elif trocar_perfil_meta == True:
+            lista_perfis[Bot().pos][2] = False
+            fimDoBlock = datetime.datetime.now() + datetime.timedelta(minutes=float(isolamento_meta))
+            lista_perfis[Bot().pos][3] = "%s/%s/%s-%s:%s.%s" % (fimDoBlock.day, fimDoBlock.month, fimDoBlock.year, fimDoBlock.hour, fimDoBlock.minute, fimDoBlock.second)
+            print(f'[{Bot().current_time()}] Esse perfil será isolado por {isolamento_meta}m.')
+            
+
+    # def deve sofrer modificações
+    def confirmar_tarefa(self, ação, login, ID_tarefa, ntarefa, TIPO_tarefa):
+        print(f'[{Bot().current_time()}] Confirmando tarefa.')
+        payload = {
+            "action":4,
+            "profile": login,
+            "token": Bot().token,
+            "orderID": ID_tarefa,
+            "key": Bot().key['https']
+        }
+        while True:
+            try:
+                r = requests.post(Bot().url,  timeout=50, data=json.dumps(payload))
+                response = r.json()
+            except:
+                print(Fore.RED + f"[{Bot().current_time()}] Sem conexão, tentando novamente")
+                time.sleep(random.uniform(1,100))
+                continue
+            else:
+                if "Tudo certo!" in response['msg']:
+                    print(Fore.GREEN + f'[{Bot().current_time()}] ' + response['msg'] + " " + "Valor ganho: R$ " + str(response['earned']))
+                    Bot.earned += float(response['earned'])
+                    ntarefa += 1
+                    break
+                else:
+                    print(response['msg'])
+                    razão = 'tasklimit'
+                    Bot().pular_tarefa(login, ID_tarefa, razão)
+                    return ntarefa, ação
+
+
+        if "Seguir" in TIPO_tarefa:
+            Bot.follows_perfil += 1
+
+        else:
+            Bot.likes_perfil += 1
+
+        # soma nas variáveis a contabilização
+        Bot.total_tarefas += 1
+        Bot.confirmações += 1
+        Bot.ações_stories += 1
+        ação += 1
+
+        # obtem o tempo total rodando em minutos para imprimir a informação
+        tempo_total = (time.time() - Bot().tinicio)/60
+
+        # imprime mensagem do total de tarefas
+        print(Style.BRIGHT + f"[{Bot().current_time()}] Seguiu: {Bot().follows_perfil} | Curtiu: {Bot().likes_perfil} | Total de ações nesse perfil: {Bot().follows_perfil + Bot().likes_perfil}\n[{Bot().current_time()}] Total de ações geral: {Bot().total_tarefas} | Tempo rodando: {tempo_total:.0f}m. | Ganhos: R${Bot().earned:.3f}")
+
+        # mostra no label
+        if Bot().confirmações == 20:
+            Bot.confirmações = 0
+            self.enviar_contabilização()
+
+        return ntarefa, ação
+
+
+    def seguir(self, LINK_tarefa, login, ID_tarefa):
+        falha = False
+
+        try:
+            driver.find_element_by_xpath("//*[text()='Message']")
+            print(Fore.YELLOW + f'[{Bot().current_time()}] Tarefa já foi realizada uma vez, pulando.')
+            razão = 'tasknotconfirmed'
+            Bot().pular_tarefa(login, ID_tarefa, razão)
+            seguiu = False
+
+        except (TimeoutException, NoSuchElementException):
+            try:
+                elemento = driver.find_element_by_xpath("//*[text()='Follow']")
+                time.sleep(random.uniform(0,1))
+                try: elemento.click()
+                except: ActionChains(driver).move_to_element(elemento).click().perform()
+                print(f'[{Bot().current_time()}] Seguindo @{LINK_tarefa}.')
+                seguiu = True
+
+            except (TimeoutException, NoSuchElementException):
+                try:
+                    elemento = driver.find_element_by_xpath("//*[text()='Follow Back']")
+                    time.sleep(random.uniform(0,1))
+                    try: elemento.click()
+                    except: ActionChains(driver).move_to_element(elemento).click().perform()
+                    print(f'[{Bot().current_time()}] Seguindo de volta @{LINK_tarefa}.')
+                    seguiu = True
+                
+                except: 
+                    falha = True
+                    seguiu = False
+        
+        return falha, seguiu
+
+
+    def verificar_follow(self, login):
+        
+        bloqueio_ação_7d = False
+        confirmar = False
+        bloqueio_ação = False
+        limite_seguidores = False
+        pular = False
+        bloqueio_verificação = False
+        razão = None
+
+
+        if "/challenge/" in driver.current_url:
+            bloqueio_verificação = True
+            print(f'[{Bot().current_time()}] Perfil {login} sofreu verificação.')
+
+        else:
+
+            try:
+                WebDriverWait(driver, 13).until(EC.presence_of_element_located((By.XPATH, ("//*[text()='Message']"))))
+                print(f'[{Bot().current_time()}] Verificação concluída, tarefa ok.')
+                confirmar = True
+            except:
+
+                try:
+                    driver.find_element_by_xpath("//*[text()='Report a Problem']")
+                    if "this action will be unavailable for you until" in driver.find_element_by_xpath('//body').text:
+                        bloqueio_ação_7d = True
+                        print(f'[{Bot().current_time()}] Perfil {login} bloqueado por 7 dias')
+
+                    else:
+                        bloqueio_ação = True
+                        print(Fore.BLUE + f'[{Bot().current_time()}] Perfil {login} bloqueado temporariamente')
+
+                    confirmar = False
+
+                except:
+                    driver.get('https://www.instagram.com/' + login)
+
+                    try:
+                        following = ''
+                        following = WebDriverWait(driver, 6).until(EC.presence_of_all_elements_located((By.CLASS_NAME,("g47SY "))))
+                    except (NoSuchElementException, TimeoutException):
+                        confirmar = False
+                    else:
+                        following = following[2].get_attribute('innerHTML')
+                        try:
+                            following = following.split(',')
+                            following = str(following[0]) + str(following[1])
+                        except:
+                            pass
+                        finally:
+                            following = int(''.join(following))
+
+                        if int(following) > 7490:
+                            print(f'[{Bot().current_time()}] Perfil atingiu o limite para seguir novas pessoas.')
+                            limite_seguidores = True        
+                        else:
+                            print(f'[{Bot().current_time()}] Tarefa não foi realizada.')
+                            razão = 'taskerror'
+                            pular = True
+
+        return razão, confirmar, bloqueio_ação, limite_seguidores, pular, bloqueio_verificação, bloqueio_ação_7d
+
+
+    def pular_tarefa(self, login, ID_tarefa, razão):
+        while True:     
+            payload = {
+                "action":5,
+                "profile": login,
+                "token": Bot().token,
+                "orderID": ID_tarefa,
+                "key": Bot().key['https'],
+                "reason": razão
+                }
+            try:
+                time.sleep(random.uniform(1,10))
+                requests.post(Bot().url,  timeout=50, data=json.dumps(payload))
+            except Exception:
+                print(Fore.RED + f"[{Bot().current_time()}] Sem conexão, tentando novamente")
+                time.sleep(random.uniform(1,100))
+                continue
+            else:    
+                print(f'[{Bot().current_time()}] Tarefa pulada com sucesso')
+                break
+
+
+    def pegar_tarefa(self, login, unico_perfil, ativado_trocarperfil):  # adicionar um timer aqui 
+        ID_tarefa = ''
+        LINK_tarefa = ''
+        TIPO_tarefa = ''
+        sem_tarefa = nao_exibir = False
+
+        print(f'[{Bot().current_time()}] Buscando tarefas no perfil @{login}')
+        start = time.time()
+        while True:
+            payload = {
+                "action": 3,
+                "profile": login,
+                "key": Bot().key['https'],
+                "token": Bot().token
+            }
+            try:
+                end = time.time()
+                if end-start >= 90 and unico_perfil == False and ativado_trocarperfil == True:
+                    print(f'[{Bot().current_time()}] Sem tarefas disponíveis, trocando de perfil.')
+                    sem_tarefa = True
+                    return sem_tarefa, ID_tarefa, LINK_tarefa, TIPO_tarefa
+
+                elif end-start >= 90 and unico_perfil == True:
+                    if nao_exibir == False:
+                        nao_exibir = True
+                        print(f'[{Bot().current_time()}] Você tem apenas um perfil disponível, tentando até tarefa ser encontrada.')
+                    time.sleep(random.uniform(1,30))
+                    start = time.time()
+                    continue   
+                
+                elif end-start >= 90 and unico_perfil == False and ativado_trocarperfil == False:
+                    if nao_exibir == False:
+                        nao_exibir = True
+                        print(f'[{Bot().current_time()}] Opção trocar de perfil se não houver ações não está habilitada, tentando até encontrar tarefas')
+                    time.sleep(random.uniform(1,30))
+                    start = time.time()
+                    continue
+                else:
+                    time.sleep(random.uniform(1,10))
+                    r = requests.post(Bot().url, timeout=50, data=json.dumps(payload))                
+                    response = r.json()
+            except Exception:
+                try:
+                    if "ordens para serem feitas no momento" in response or "Nao ha ordens disponiveis no momento" in response:
+                        continue
+                    else:
+                        print(Fore.RED + f"[{Bot().current_time()}] Sem conexão, tentando novamente")
+                        start = time.time()
+                        time.sleep(random.uniform(1,100))
+                        continue
+                except:
+                    time.sleep(random.uniform(1,100))
+                    continue
+            else:
+                try:
+                    ID_tarefa = response['id']
+                    LINK_tarefa = response['link']
+                    TIPO_tarefa = response['service']
+                    print(f'[{Bot().current_time()}] Tarefa recebida: {TIPO_tarefa} {LINK_tarefa}')
+                    return sem_tarefa, ID_tarefa, LINK_tarefa, TIPO_tarefa
+                except:
+                    time.sleep(random.uniform(1,100))
+                    continue
+
+
+    def stories(self, login, nacoes_stories, tstories, ativado_stories):
+        if ativado_stories == True and Bot().ações_stories == nacoes_stories:
+            Bot.ações_stories = 0
+            print(Style.BRIGHT + f"[{Bot().current_time()}] Assistindo stories por {tstories:.0f} min" + Style.RESET_ALL)
+            driver.get('https://www.instagram.com/')
+
+            try:
+                stories = WebDriverWait(driver, 60).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "OE3OK ")))
+                stories = stories[3]
+                ActionChains(driver).move_to_element(stories).click().perform()
+                time.sleep(tstories*60)
+                
+            except IndexError:
+                stories = stories[0]
+                ActionChains(driver).move_to_element(stories).click().perform()
+                time.sleep(tstories*60)
+
+            except Exception:
+                driver.refresh()
+                time.sleep(tstories*60)
+
+
+    # def em construção, pode sofrer modificações
+    def avaliar_login(self, login, lista_perfis):
+        driver.implicitly_wait(3)
+        bloqueio_verificação = False
+        bloqueio_ação = False
+        bloqueio_email = False
+        bloqueio_dadosincorretos = False 
+
+        if "/challenge/" in driver.current_url:
+            print(Fore.MAGENTA + f"\n[{Bot().current_time()}] Conta {login}, precisa ser analisada. Possivelmente em verificação.")
+            bloqueio_verificação = True
+            return bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos
+
+        try:
+            elemento = driver.find_element_by_xpath('//button[@class="aOOlW  bIiDR  "]')
+            time.sleep(random.randint(1,4))
+            elemento.click()
+        except NoSuchElementException:
+            pass
+        else:
+            print(f"[{Bot().current_time()}] Conta {login} sofreu bloqueio de ação.")
+            bloqueio_ação = True
+            return bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos
+
+        try:
+            driver.find_element_by_css_selector('#react-root > section > div > div > div.GA2q- > form > span > button')
+        except NoSuchElementException:
+            pass
+        else:
+            print(Fore.MAGENTA + f"[{Bot().current_time()}] Conta {login}, precisa ser analisada. Possivelmente sofreu bloqueio por email.")
+            bloqueio_email = True
+            return bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos 
+
+        try:
+            driver.find_element_by_css_selector('div.gr27e:nth-child(1)')
+        except:
+            return bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos 
+        else:
+            print(Fore.MAGENTA + f"\n[{Bot().current_time()}] Conta {login}, precisa ser analisada. Possivelmente está com dados incorretos ou sofreu restrições.")
+            bloqueio_dadosincorretos = True
+            return bloqueio_verificação, bloqueio_ação, bloqueio_email, bloqueio_dadosincorretos 
+
+
+    def logar_instagram(self, login, senha):
+
+        time.sleep(1)
+        driver.get('https://www.instagram.com/')
+
+        WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.XPATH, "//input[@name='username']"))).send_keys(login)
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//input[@name='password']"))).send_keys((senha) + Keys.ENTER)
+        time.sleep(random.uniform(1,5))
+        try:
+            elemento = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, '//button[contains(text(), "Not Now")]')))
+            time.sleep(random.uniform(0,3))
+            try: elemento.click()
+            except: pass
+        except (NoSuchElementException, TimeoutException):
+            status_login = False
+            return status_login
+        else:
+            status_login = True
+            return status_login
+
+
+    def abrir_navegador(self, navegador, pathbrave, ativado_ocultarnavegador, ativado_modoanonimo, ativado_useragent, ativado_extensao, proxy_ip, proxy_porta, ativado_proxy):
+        status = True
+        global driver
+
+        os.environ['WDM_LOG_LEVEL'] = '0'
+        
+        UA_Fixo = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
+
+        UA = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1 Safari/605.1.15",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.122 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.75.14 (KHTML, like Gecko) Version/7.0.3 Safari/7046A194A",
+            "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.7.2) Gecko/20040804 Netscape/7.2 (ax)",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.105 Safari/537.36"
+        ]
+
+        UA = random.choice(UA)
+
+        if (r"\brave.exe") not in pathbrave:
+            pathbrave = pathbrave + (r"\brave.exe")
+
+        if 'chrome' in navegador or navegador == 'brave' or navegador == 'edge':
+            if'chrome' in navegador or navegador == 'brave':
+                options = ChromeOptions()
+            elif navegador == 'edge':
+                options = EdgeOptions()
+                options.use_chromium = True
+
+            caps = DesiredCapabilities().CHROME
+            caps["pageLoadStrategy"] = "eager"
+
+            options.add_argument("--disable-popup-blocking")
+            options.add_argument("--disable-notifications")
+            options.add_argument("--start-maximized")
+            options.add_argument('--disable-infobars')
+            options.add_argument("--mute-audio")
+            options.add_argument("--disable-blink-features")
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_argument('--no-sandbox')
+            options.add_argument("--silent")
+            options.add_argument("--disable-plugins")
+            options.add_argument('--disable-gpu')
+            options.add_argument("--disable-dev-shm-using") 
+            options.add_argument('--dns-prefetch-disable') #teste
+            options.add_argument("--disable-offline-load-stale-cache") #teste
+            options.add_argument("--disk-cache-size=0") #teste
+            options.add_argument('--allow-running-insecure-content')
+            options.add_argument('--ignore-certificate-errors')
+            options.add_argument("--lang=en-US")
+            options.add_argument('--window-size=1920,1080')
+            options.add_argument('--force-device-scale-factor=0.7')
+            options.add_argument("--blink-settings=imagesEnabled=false")
+            options.add_experimental_option("detach", False)
+            options.add_experimental_option("excludeSwitches", ["enable-logging" , "enable-automation"])
+            options.add_experimental_option('useAutomationExtension', False)
+            options.add_experimental_option('prefs', {'credentials_enable_service': False, 'profile': {'password_manager_enabled': False}})
+
+
+            if navegador == 'brave':
+                options.binary_location = pathbrave
+
+            if ativado_modoanonimo == True:
+                options.add_argument("--incognito")
+
+            if ativado_ocultarnavegador == True:
+                options.headless = True
+
+            if ativado_useragent == False and ativado_ocultarnavegador == True:
+                options.add_argument(f'user-agent={UA_Fixo}')
+            
+            if ativado_useragent == True:
+                options.add_argument(f'user-agent={UA}')
+                print(f'[{Bot().current_time()}] User agent escolhido:\n[{Bot().current_time()}] {UA}')
+            
+            if ativado_proxy == True:
+                options.add_argument(f'--proxy-server={proxy_ip}:{proxy_porta}')
+                print(f'[{Bot().current_time()}] Proxy habilitada.')
+
+            try:
+                if 'chrome' == navegador or 'brave' == navegador:
+                    #cache_valid_range=7
+                    driver = selenium.webdriver.Chrome(ChromeDriverManager().install(), options=options)
+                elif navegador == 'edge':
+                    driver = Edge(EdgeChromiumDriverManager().install(), options=options)
+                elif navegador == 'chrome87':
+                    driver = selenium.webdriver.Chrome(executable_path=f"./storage/driver/chromedriver87.exe", options=options)
+                elif navegador == 'chrome86':
+                    driver = selenium.webdriver.Chrome(executable_path=f"./storage/driver/chromedriver86.exe", options=options)
+                elif navegador == 'chrome85':
+                    driver = selenium.webdriver.Chrome(executable_path=f"./storage/driver/chromedriver85.exe", options=options)
+                elif navegador == 'chrome84':
+                    driver = selenium.webdriver.Chrome(executable_path=f"./storage/driver/chromedriver84.exe", options=options)
+            except Exception as status:
+                return status
+
+        elif navegador == 'firefox':
+            options = FirefoxOptions()
+            firefox_profile = selenium.webdriver.FirefoxProfile()
+            options.set_preference('dom.webdriver.enabled', False)
+            options.set_preference('useAutomationExtension', False)
+            options.set_preference('media.volume_scale', '0.0')
+            firefox_profile.set_preference("intl.accept_languages", "en,en-US")
+            firefox_profile.update_preferences()           
+            cap = DesiredCapabilities().FIREFOX
+
+            if ativado_ocultarnavegador == True:
+                options.add_argument("--headless")
+            
+            if ativado_modoanonimo == True:
+                firefox_profile.set_preference("browser.privatebrowsing.autostart", True)
+
+            if ativado_useragent == True:
+                firefox_profile.set_preference("general.useragent.override", UA)
+                print(f'[{Bot().current_time()}] User agent escolhido:\n{UA}')
+            
+            if ativado_useragent == False and ativado_ocultarnavegador == True:
+                firefox_profile.set_preference("general.useragent.override", UA_Fixo)
+
+            try: 
+                driver = selenium.webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options, firefox_profile=firefox_profile, capabilities=cap)
+            except Exception as status:
+                return status
+
+        return status
+
+
+def processar_banco():
+    conn, cursor, dados = Interface().definir_banco_configs()
+    lista_informações_configurações = Interface().carregar_informações_configurações(conn, cursor, dados)
+    Interface().definir_informações_tela_configurações(dados, lista_informações_configurações)
+
+    conn, cursor, dados = Interface().definir_banco_login()
+    lista_informações_login = Interface().carregar_informações_login(conn, cursor, dados)
+    Interface().definir_informações_tela_login(dados, lista_informações_login)
+    return conn, cursor, dados
+
+
+if __name__ == '__main__':
+    app = QtWidgets.QApplication([])
+    msg = QMessageBox()
+
+
+
+    msg.setWindowTitle("...")
+    msg.setText('Pedimos a sua colaboração para utilizar uma versão mais recente (com interface) se possível.\nNão estamos dando assistência à versões CMD. Utilize com ciência disso.')
+    msg.exec_()
+
+
+    #verifica por atualizações
+    atualizar = Updater().verificar_atualização()
+
+    if atualizar == True:
+
+        msg.setWindowTitle("Atualização.")
+        msg.setText('Atualização disponível!\n\nPor favor, certifique que o seu bot já foi descompactado do arquivo .zip, caso contrário, seu bot permanecerá desatualizado, por mais que baixe as atualizações necessárias.')
+        msg.exec_()
+
+        windowAtualizar = uic.loadUi("./storage/front/graphic/gui_update.ui")
+        windowAtualizar.show()
+
+        updater = threading.Thread(target=Updater().atualizar_arquivos, daemon=True, name="Updater")
+        updater.start()
+
+    else:
+        # tela de configurações
+        windowConfigurar = uic.loadUi("./storage/front/graphic/gui_configurações.ui")
+        # tela de login
+        windowLogin = uic.loadUi("./storage/front/graphic/gui_login.ui")
+
+        conn, cursor, dados = processar_banco()
+
+        # cliques de botões da interface de login
+        windowLogin.pushButtonLogin.clicked.connect(Interface.btn_iniciar)
+        windowLogin.pushButton_configurar.clicked.connect(Interface.btn_configurar)
+        windowLogin.pushButton_contato.clicked.connect(Interface.btn_contato)
+        # clique dos botões da interface de configurações
+        windowConfigurar.pushButtonSalvar.clicked.connect(Interface.btn_salvarconfig)
+
+        windowLogin.show()
+
+    status = app.exec_()
+    if status == 0:
+        
+        try:
+            driver.quit()
+
+        except:
+            pass
+        
+        finally:
+            Bot().enviar_contabilização_individual()
+            os._exit(0)
